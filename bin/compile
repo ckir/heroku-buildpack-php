@@ -267,6 +267,7 @@ status "Bundling PHP ${PHP_VERSION}"
 # dynamic libraries when running it during the slug compilation.
 fetch_package "libicu-51" /app/vendor/libicu > /dev/null
 fetch_package "libmcrypt-${MCRYPT_VERSION}" /app/vendor/libmcrypt > /dev/null
+fetch_package "libzmq-4.0.3" /app/vendor/libzmq > /dev/null
 
 fetch_engine_package php "$PHP_VERSION" /app/vendor/php | indent
 
@@ -284,6 +285,8 @@ echo "       phpredis"
 fetch_package "ext/$(php_api_version)/php-redis" "/app/vendor/php" | indent
 echo "       mongo"
 fetch_package "ext/$(php_api_version)/php-mongo" "/app/vendor/php" | indent
+echo "       zmq"
+fetch_package "ext/$(php_api_version)/php-zmq" "/app/vendor/php" | indent
 
 if [ -f "$BUILD_DIR/composer.json" ] && package_newrelic_enabled; then
     install_newrelic "$NEWRELIC_VERSION"
@@ -351,6 +354,7 @@ mv /app/vendor/libmcrypt vendor/libmcrypt
 mv /app/vendor/libicu vendor/libicu
 mv /app/vendor/nginx vendor/nginx
 mv /app/vendor/php vendor/php
+mv /app/vendor/libzmq vendor/libzmq
 
 mkdir -p "bin"
 
@@ -368,6 +372,7 @@ done
 export DOCUMENT_ROOT="$DOCUMENT_ROOT"
 export INDEX_DOCUMENT="$INDEX_DOCUMENT"
 export NGINX_INCLUDES="$NGINX_INCLUDES"
+export PKG_CONFIG_PATH=`find /app/vendor -name pkgconfig | sed ':a;N;$!ba;s/\n/:/g'`
 
 if [ -n "\$NEW_RELIC_LICENSE_KEY" ]; then
     echo "newrelic.license=\"\$NEW_RELIC_LICENSE_KEY\"" > /app/vendor/php/etc/conf.d/newrelic_license.ini
