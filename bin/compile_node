@@ -94,7 +94,7 @@ status "Building runtime environment"
 mkdir -p $build_dir/.profile.d
 cat > $build_dir/.profile.d/nodejs.sh <<SH
 #!/usr/bin/env bash
-export PATH=\$HOME/vendor/node/bin:\$HOME/bin:\$HOME/node_modules/.bin:\$PATH\
+export PATH=$HOME/vendor/node/bin:$HOME/bin:$HOME/node_modules/.bin:$PATH\
 export PKG_CONFIG_PATH=`find /app/vendor -name pkgconfig | sed ':a;N;$!ba;s/\n/:/g'
 SH
 
