@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+php_zmq_version="1.1.2"
+
+curl -L "http://pecl.php.net/get/zmq-${php_zmq_version}.tgz" \
+    | tar xz
+
+mkdir -p /app/vendor/libzmq
+curl "http://ckir-heroku-buildpack-php.s3.amazonaws.com/package/libzmq-4.0.3.tgz" \
+    | tar xz -C /app/vendor/libzmq
+export LD_LIBRARY_PATH=/app/vendor/libzmq/lib:$LD_LIBRARY_PATH
+export PATH=$PATH:/app/vendor/libzmq/bin
+export PKG_CONFIG_PATH="/app/vendor/libzmq/lib/pkgconfig"
+
+cd zmq-${php_zmq_version}
+/app/vendor/php/bin/phpize
+./configure CFLAGS="-I/app/vendor/libzmq/include" --with-php-config=/app/vendor/php/bin/php-config
+
+make
+cp modules/zmq.so "$EXT_DIR/zmq.so"
+echo "extension=zmq.so" > "$PREFIX/etc/conf.d/zmq.ini"
+

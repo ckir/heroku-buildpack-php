@@ -2,7 +2,11 @@
 
 set -e
 
-download_url="http://download.icu-project.org/files/icu4c/51.2/icu4c-51_2-src.tgz"
+version_icu="52_1"
+version_icudot="52.1"
+version_icumajor="52"
+
+download_url="http://download.icu-project.org/files/icu4c/${version_icudot}/icu4c-${version_icu}-src.tgz"
 
 basedir="$( cd -P "$( dirname "$0" )" && pwd )"
 source "$basedir/../conf/buildpack.conf"
@@ -12,7 +16,7 @@ if [ -z "$S3_BUCKET" ]; then
     exit 1
 fi
 
-tempdir="$( mktemp -t libmemcached_xxxx )"
+tempdir="$( mktemp -t libicu_XXXXXXXXXX )"
 rm -rf $tempdir
 mkdir -p $tempdir
 cd $tempdir
@@ -29,13 +33,13 @@ SH
 vulcan build --verbose \
     --prefix /app/vendor/libicu \
     --source "." \
-    --output "${tempdir}/libicu-51.tgz" \
+    --output "${tempdir}/libicu-${version_icumajor}.tgz" \
     --name libicu \
     --command "$build_cmd"
 
 s3cmd put \
     --verbose --acl-public \
-    "$tempdir/libicu-51.tgz" \
-    "s3://$S3_BUCKET/package/libicu-51.tgz"
+    "$tempdir/libicu-${version_icumajor}.tgz" \
+    "s3://$S3_BUCKET/package/libicu-${version_icumajor}.tgz"
 
-"$basedir/package-checksum" "libicu-51"
+"$basedir/package-checksum" "libicu-${version_icumajor}"

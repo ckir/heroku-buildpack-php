@@ -17,7 +17,7 @@ if [ -z "$S3_BUCKET" ]; then
     exit 1
 fi
 
-tempdir="$( mktemp -t libmcrypt_xxxx )"
+tempdir="$( mktemp -t libmcrypt_XXXXXXXXXX )"
 rm -rf $tempdir
 mkdir -p $tempdir
 cd $tempdir

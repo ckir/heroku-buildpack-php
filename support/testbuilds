@@ -1,0 +1,333 @@
+#!/usr/bin/env bash
+
+set -x
+
+# Stop script if error
+set -e
+
+S3_BUCKET="ckir-heroku-buildpack-php"
+
+# http://www.php.net/downloads.php
+version_php="5.5.6"
+
+# http://sourceforge.net/projects/mcrypt/files/Libmcrypt/
+version_mcrypt="2.5.8"
+
+# http://site.icu-project.org/download
+version_icu="52_1"
+
+# http://memcached.org/
+version_memcached="1.4.15"
+
+# https://launchpad.net/libmemcached/+download
+version_libmemcached="1.0.16"
+
+# http://pecl.php.net/package/memcached
+version_phpmemcached="2.2.0b1"
+
+# http://zeromq.org/intro:get-the-software
+version_zmq="4.0.3"
+
+# http://pecl.php.net/package/zmq
+version_phpzmq="1.1.2"
+
+# http://pecl.php.net/package/libevent
+version_phplibevent="0.1.0"
+
+# http://download.pureftpd.org/php-webdav/
+version_phpwebdav="1.2"
+
+# http://www.webdav.org/neon/
+version_neon="0.30.0"
+
+# http://www.zlib.net/
+version_zlib="1.2.8"
+
+# http://nginx.org/download/
+version_nginx="1.5.7"
+
+# http://sourceforge.net/projects/pcre/files/pcre/
+version_pcre="8.33"
+
+function maketempdir() {
+	local tempdir="$( mktemp -t builddir_XXXXXXXXXX )"
+	rm -rf $tempdir
+	mkdir -p $tempdir
+	cd $tempdir
+}
+
+function buildmcrypt() {
+	maketempdir
+	curl -L "http://sourceforge.net/projects/mcrypt/files/Libmcrypt/${version_mcrypt}/libmcrypt-${version_mcrypt}.tar.gz/download" \
+	    | tar xz
+	mkdir -p /app/vendor/libmcrypt
+	cd libmcrypt-${version_mcrypt}
+	./configure --disable-posix-threads --prefix=/app/vendor/libmcrypt
+	make && make install
+}
+
+function buildicu() {
+	maketempdir
+	curl -L "http://download.icu-project.org/files/icu4c/52.1/icu4c-${version_icu}-src.tgz" \
+	    | tar xz
+	mkdir -p /app/vendor/libicu
+	cd icu
+	./source/runConfigureICU Linux --prefix=/app/vendor/libicu
+	make && make install
+}
+
+function buildmemcached() {
+	#memcached server
+	maketempdir
+	curl -L "http://memcached.googlecode.com/files/memcached-${version_memcached}.tar.gz" \
+	    | tar xz
+	mkdir -p /app/vendor/memcached
+	cd memcached-${version_memcached}
+	./configure --prefix=/app/vendor/memcached
+
+	#libmemcached
+	maketempdir
+	mkdir -p /app/vendor/libmemcached
+	curl -LO "https://launchpad.net/libmemcached/1.0/${version_libmemcached}/+download/libmemcached-${version_libmemcached}.tar.gz"
+	tar -xzf libmemcached-${version_libmemcached}.tar.gz
+	cd libmemcached-${version_libmemcached}
+	./configure --prefix=/app/vendor/libmemcached
+	make && make install
+}
+
+function buildneon() {
+	maketempdir
+	curl -L "http://www.webdav.org/neon/neon-${version_neon}.tar.gz" \
+	    | tar xz
+	mkdir -p /app/vendor/libneon
+	cd neon-${version_neon}
+	./configure --prefix=/app/vendor/libneon --enable-shared
+	make && make install
+}
+
+function buildzmq() {
+	maketempdir
+	curl -L "http://download.zeromq.org/zeromq-${version_zmq}.tar.gz" \
+	    | tar xz
+	mkdir -p /app/vendor/libzmq
+	cd zeromq-${version_zmq}
+	./configure --prefix=/app/vendor/libzmq
+	make && make install
+}
+
+function buildzlib() {
+	maketempdir
+	curl -L "http://zlib.net/zlib-${version_zlib}.tar.gz" \
+	    | tar xz
+	mkdir -p /app/vendor/php/zlib
+	cd zlib-${version_zlib}
+	./configure --prefix=/app/vendor/php/zlib
+	make && make install
+}
+
+function buildphp() {
+	maketempdir
+	curl -L "http://php.net/distributions/php-${version_php}.tar.gz" \
+	    | tar xz
+	cd php-${version_php}
+    	export LD_LIBRARY_PATH=/app/vendor/libmcrypt/lib:/app/vendor/libicu/lib:/app/vendor/libmemcached/lib:/app/vendor/libneon/lib:/app/vendor/libzmq/lib:/app/vendor/php/zlib/lib
+    	export PATH=$PATH:/app/vendor/libicu/bin:/app/vendor/libzmq/bin:/app/vendor/libneon/bin
+	./configure --prefix=/app/vendor/php \
+	    --with-config-file-path=/app/vendor/php/etc \
+	    --with-config-file-scan-dir=/app/vendor/php/etc/conf.d \
+	    --enable-intl \
+	    --with-gd \
+	    --with-mysql \
+	    --with-mysqli \
+	    --with-pdo-mysql \
+	    --with-pdo-sqlite \
+	    --with-pdo-pgsql=/usr/bin/pg_config \
+	    --with-pgsql \
+	    --enable-shmop \
+	    --enable-zip \
+	    --with-jpeg-dir=/usr \
+	    --with-png-dir=/usr \
+	    --enable-exif \
+	    --with-zlib=/app/vendor/php/zlib \
+	    --with-bz2 \
+	    --with-openssl \
+	    --enable-soap \
+	    --enable-xmlreader \
+	    --with-xmlrpc \
+	    --with-curl=/usr \
+	    --with-xsl \
+	    --enable-fpm \
+	    --enable-mbstring \
+	    --enable-pcntl \
+	    --enable-sockets \
+	    --enable-bcmath \
+	    --with-readline \
+	    --with-mcrypt=/app/vendor/libmcrypt \
+	    --disable-debug
+	make && make install
+	/app/vendor/php/bin/pear config-set php_dir /app/vendor/php
+}
+
+function phpextensions() {
+	mkdir -p /app/vendor/php/etc/conf.d
+	echo "zend optimizer";
+	/app/vendor/php/bin/pecl install ZendOpcache-beta \
+		&& echo "zend_extension=$(/app/vendor/php/bin/php-config --extension-dir)/opcache.so" > /app/vendor/php/etc/conf.d/opcache.ini
+	echo "apcu";
+	yes '' | /app/vendor/php/bin/pecl install apcu-beta \
+		&& echo "extension=apcu.so" > /app/vendor/php/etc/conf.d/apcu.ini
+	echo "zmq";
+	yes '/app/vendor/libzmq' | /app/vendor/php/bin/pecl install channel://pecl.php.net/zmq-${version_phpzmq} \
+		&& echo "extension=zmq.so" > /app/vendor/php/etc/conf.d/zmq.ini
+	echo "libevent";
+	yes '' | /app/vendor/php/bin/pecl install channel://pecl.php.net/libevent-${version_phplibevent} \
+		&& echo "extension=libevent.so" > /app/vendor/php/etc/conf.d/libevent.ini
+	echo "memcached";
+	maketempdir
+	curl -LO "http://pecl.php.net/get/memcached-${version_phpmemcached}.tgz"
+	tar xzf memcached-${version_phpmemcached}.tgz
+	cd memcached-${version_phpmemcached}
+	/app/vendor/php/bin/phpize
+	./configure --with-php-config=/app/vendor/php/bin/php-config --with-libmemcached-dir=/app/vendor/libmemcached --disable-memcached-sasl
+	make && make install
+	echo "extension=memcached.so" > /app/vendor/php/etc/conf.d/memcached.ini
+	echo "dav";
+	maketempdir
+	curl -L "http://download.pureftpd.org/php-webdav/php-webdav-${version_phpwebdav}.tar.gz" \
+    		| tar xz
+	cd dav
+	/app/vendor/php/bin/phpize
+	./configure CFLAGS="-I/app/vendor/libneon/include/neon" \
+		--with-php-config=/app/vendor/php/bin/php-config
+	make && make install
+	echo "extension=dav.so" > /app/vendor/php/etc/conf.d/dav.ini
+}
+
+function builddav() {
+	maketempdir
+	curl -L "http://download.pureftpd.org/php-webdav/php-webdav-${version_phpwebdav}.tar.gz" \
+    		| tar xz
+	cd dav
+	/app/vendor/php/bin/phpize
+exit 0;
+	./configure CFLAGS="-I/app/vendor/libneon/include/neon" \
+		--with-php-config=/app/vendor/php/bin/php-config
+	make
+echo `pwd`;
+}
+
+function buildnginx() {
+	maketempdir
+	curl -LO "http://sourceforge.net/projects/pcre/files/pcre/${version_pcre}/pcre-${version_pcre}.tar.gz"
+	tar -xzf "pcre-${version_pcre}.tar.gz"
+	curl -LO "http://zlib.net/zlib-${version_zlib}.tar.gz"
+	tar -xzf "zlib-${version_zlib}.tar.gz"
+	curl -LO "http://nginx.org/download/nginx-${version_nginx}.tar.gz"
+	tar -xzvf "nginx-${version_nginx}.tar.gz"
+	cd nginx-${version_nginx}
+	./configure --prefix=/app/vendor/nginx --with-http_ssl_module --with-pcre=../pcre-${version_pcre} --with-zlib=../zlib-${version_zlib}
+	make && make install
+}
+
+
+echo "                                                         ";
+echo " #      # #####  #    #  ####  #####  #   # #####  ##### ";
+echo " #      # #    # ##  ## #    # #    #  # #  #    #   #   ";
+echo " #      # #####  # ## # #      #    #   #   #    #   #   ";
+echo " #      # #    # #    # #      #####    #   #####    #   ";
+echo " #      # #    # #    # #    # #   #    #   #        #   ";
+echo " ###### # #####  #    #  ####  #    #   #   #        #   ";
+echo " ";
+echo "-----> Building libmcrypt ${version_mcrypt}"
+#buildmcrypt
+
+echo "                                 ";
+echo " #      # #####  #  ####  #    # ";
+echo " #      # #    # # #    # #    # ";
+echo " #      # #####  # #      #    # ";
+echo " #      # #    # # #      #    # ";
+echo " #      # #    # # #    # #    # ";
+echo " ###### # #####  #  ####   ####  ";
+echo " ";
+echo "-----> Building libicu ${version_icu}"
+#buildicu
+
+echo "                                                                                ";
+echo " #      # #####  #    # ###### #    #  ####    ##    ####  #    # ###### #####  ";
+echo " #      # #    # ##  ## #      ##  ## #    #  #  #  #    # #    # #      #    # ";
+echo " #      # #####  # ## # #####  # ## # #      #    # #      ###### #####  #    # ";
+echo " #      # #    # #    # #      #    # #      ###### #      #    # #      #    # ";
+echo " #      # #    # #    # #      #    # #    # #    # #    # #    # #      #    # ";
+echo " ###### # #####  #    # ###### #    #  ####  #    #  ####  #    # ###### #####  ";
+echo "                                                                                ";
+echo "-----> Building libmemcached ${version_memcached}"
+#buildmemcached
+
+echo "                                             ";
+echo " #      # #####  #    # ######  ####  #    # ";
+echo " #      # #    # ##   # #      #    # ##   # ";
+echo " #      # #####  # #  # #####  #    # # #  # ";
+echo " #      # #    # #  # # #      #    # #  # # ";
+echo " #      # #    # #   ## #      #    # #   ## ";
+echo " ###### # #####  #    # ######  ####  #    # ";
+echo "                                             ";
+echo "-----> Building libneon ${version_neon}"
+#buildneon
+
+echo "                                      ";
+echo " #      # #####  ###### #    #  ####  ";
+echo " #      # #    #     #  ##  ## #    # ";
+echo " #      # #####     #   # ## # #    # ";
+echo " #      # #    #   #    #    # #  # # ";
+echo " #      # #    #  #     #    # #   #  ";
+echo " ###### # #####  ###### #    #  ### # ";
+echo "                                      ";
+echo "-----> Building libzmq ${version_neon}"
+#buildzmq
+
+echo "                        ";
+echo " ###### #      # #####  ";
+echo "     #  #      # #    # ";
+echo "    #   #      # #####  ";
+echo "   #    #      # #    # ";
+echo "  #     #      # #    # ";
+echo " ###### ###### # #####  ";
+echo "                        ";
+echo "-----> Building zlib ${version_zlib}"
+#buildzlib
+
+echo " ######  #     # ######  ";
+echo " #     # #     # #     # ";
+echo " #     # #     # #     # ";
+echo " ######  ####### ######  ";
+echo " #       #     # #       ";
+echo " #       #     # #       ";
+echo " #       #     # #       ";
+echo "                         ";
+echo "-----> Building PHP $version_php"
+#buildphp
+
+echo "                                                                 ";
+echo " ###### #    # ##### ###### #    #  ####  #  ####  #    #  ####  ";
+echo " #       #  #    #   #      ##   # #      # #    # ##   # #      ";
+echo " #####    ##     #   #####  # #  #  ####  # #    # # #  #  ####  ";
+echo " #        ##     #   #      #  # #      # # #    # #  # #      # ";
+echo " #       #  #    #   #      #   ## #    # # #    # #   ## #    # ";
+echo " ###### #    #   #   ###### #    #  ####  #  ####  #    #  ####  ";
+echo "                                                                 ";
+#phpextensions
+
+echo "                               ";
+echo " #    #  ####  # #    # #    # ";
+echo " ##   # #    # # ##   #  #  #  ";
+echo " # #  # #      # # #  #   ##   ";
+echo " #  # # #  ### # #  # #   ##   ";
+echo " #   ## #    # # #   ##  #  #  ";
+echo " #    #  ####  # #    # #    # ";
+echo "
+echo "-----> Building nginx $version_nginx"                               ";
+#buildnginx
+builddav
+echo "BUILD COMPLETED";
+read a
+

@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+set -e
+
+zmq_version="$1"
+
+if [ -z "$zmq_version" ]; then
+    echo "Usage: $(basename "$0") VERSION" >&2
+    exit 1
+fi
+
+basedir="$( cd -P "$( dirname "$0" )" && pwd )"
+source "$basedir/../conf/buildpack.conf"
+
+if [ -z "$S3_BUCKET" ]; then
+    echo "Must set S3_BUCKET environment variable" >&2
+    exit 1
+fi
+
+tempdir="$( mktemp -t libzmq_XXXXXXXXXX )"
+rm -rf $tempdir
+mkdir -p $tempdir
+cd $tempdir
+
+echo "-----> Downloading libzmq ${zmq_version}"
+curl -L "http://download.zeromq.org/zeromq-${zmq_version}.tar.gz" \
+    | tar xzv
+
+vulcan build \
+    --name libzmq \
+    --prefix /app/vendor/libzmq \
+    --source "$tempdir/zeromq-${zmq_version}" \
+    --output "$tempdir/libzmq-${zmq_version}.tgz" \
+    --command "mkdir -p /app/vendor/libzmq && ./configure --prefix=/app/vendor/libzmq && make && make install"
+
+
+s3cmd put \
+    --verbose --acl-public \
+    "$tempdir/libzmq-${zmq_version}.tgz" \
+    "s3://$S3_BUCKET/package/libzmq-${zmq_version}.tgz"
+
+"$basedir/package-checksum" "libzmq-${zmq_version}"

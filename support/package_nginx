@@ -20,13 +20,13 @@ if [ -z "$NGINX_ZLIB_VERSION" ]; then
 fi
 
 if [ -z "$NGINX_PCRE_VERSION" ]; then
-    NGINX_PCRE_VERSION=8.32
+    NGINX_PCRE_VERSION=8.33
 fi
 
 zlib_version="$NGINX_ZLIB_VERSION"
 pcre_version="$NGINX_PCRE_VERSION"
 
-tempdir="$( mktemp -t nginx_xxxx )"
+tempdir="$( mktemp -t nginx_XXXXXXXXXX )"
 rm -rf $tempdir
 mkdir -p $tempdir
 cd $tempdir
