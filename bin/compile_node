@@ -74,7 +74,7 @@ if test -d $cache_dir; then
 fi
 
 status "Installing dependencies"
-export PKG_CONFIG_PATH=`find /app/vendor -name pkgconfig | sed ':a;N;$!ba;s/\n/:/g'
+export PKG_CONFIG_PATH=`find /app/vendor -name pkgconfig | sed ':a;N;$!ba;s/\n/:/g'`
 npm install --production 2>&1 | indent
 
 status "Pruning unused dependencies"
@@ -92,10 +92,10 @@ rm -rf "$build_dir/.npm"
 # Update the PATH
 status "Building runtime environment"
 mkdir -p $build_dir/.profile.d
-cat > $build_dir/.profile.d/nodejs.sh <<SH
+cat > "$build_dir/.profile.d/nodejs.sh" <<SH
 #!/usr/bin/env bash
-export PATH=$HOME/vendor/node/bin:$HOME/bin:$HOME/node_modules/.bin:$PATH\
-export PKG_CONFIG_PATH=`find /app/vendor -name pkgconfig | sed ':a;N;$!ba;s/\n/:/g'
+export PATH=$HOME/vendor/node/bin:$HOME/bin:$HOME/node_modules/.bin:$PATH
+export PKG_CONFIG_PATH=`find /app/vendor -name pkgconfig | sed ':a;N;$!ba;s/\n/:/g'`
 SH
 
 # Post package.json to nomnom service
