@@ -359,7 +359,7 @@ mv /app/vendor/nginx vendor/nginx
 mv /app/vendor/php vendor/php
 mv /app/vendor/libzmq vendor/libzmq
 mkdir -p vendor/node/bin
-mv /app/vendor/node/bin vendor/node/bin
+mv /app/vendor/node/bin vendor/node
 
 mkdir -p "bin"
 
