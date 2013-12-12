@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+set -e
+
+phantomjs_version="$1"
+
+if [ -z "$phantomjs_version" ]; then
+    echo "Usage: $(basename "$0") VERSION" >&2
+    exit 1
+fi
+
+basedir="$( cd -P "$( dirname "$0" )" && pwd )"
+source "$basedir/../conf/buildpack.conf"
+
+if [ -z "$S3_BUCKET" ]; then
+    echo "Must set S3_BUCKET environment variable" >&2
+    exit 1
+fi
+
+tempdir="$( mktemp -t phantomjs_XXXXXXXXXX )"
+rm -rf $tempdir
+mkdir -p $tempdir
+cd $tempdir
+
+echo "-----> Downloading phantomjs ${phantomjs_version}"
+curl -LO "https://phantomjs.googlecode.com/files/phantomjs-${phantomjs_version}-linux-x86_64.tar.bz2"
+tar xjvf phantomjs-${phantomjs_version}-linux-x86_64.tar.bz2
+rm phantomjs-${phantomjs_version}-linux-x86_64.tar.bz2
+cd $tempdir/phantomjs-${phantomjs_version}-linux-x86_64/bin
+chmod a+x phantomjs
+tar czf ../../phantomjs-${phantomjs_version}.tgz phantomjs
+cd ../..
+
+s3cmd put \
+    --verbose --acl-public \
+    "$tempdir/phantomjs-${phantomjs_version}.tgz" \
+    "s3://$S3_BUCKET/package/phantomjs-${phantomjs_version}.tgz"
+
+"$basedir/package-checksum" "phantomjs-${phantomjs_version}"
